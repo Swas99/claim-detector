@@ -1,6 +1,6 @@
 # Phase 1: Foundation
 
-**Status:** IN PROGRESS
+**Status:** COMPLETE
 **Estimated time:** ~1 hour
 
 ## Tasks
@@ -14,10 +14,10 @@
 - [x] config.py (Settings with pydantic-settings)
 - [x] README.md skeleton
 - [x] HIGH_LEVEL_PLAN.md in repo
-- [ ] Download dataset from VeritaResearch/claim-extraction
-- [ ] Write src/data/dataset.py (load, preprocess, split)
-- [ ] Verify data loading works
-- [ ] Initial git commit
+- [x] Download dataset from VeritaResearch/claim-extraction
+- [x] Write src/data/dataset.py (load, preprocess, split)
+- [x] Verify data loading works
+- [x] Initial git commit
 
 ## Dataset Details
 
