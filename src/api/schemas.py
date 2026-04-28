@@ -13,11 +13,19 @@ class PredictRequest(BaseModel):
     )
 
 
+class TokenAttribution(BaseModel):
+    token: str
+    weight: float
+
+
 class PredictResponse(BaseModel):
     is_claim: bool = Field(description="Whether the sentence is a factual claim")
     confidence: float = Field(description="Model confidence (0.0 to 1.0)")
     source: str = Field(description="Prediction source: model, fast_filter, or cache")
     cached: bool = Field(default=False, description="Whether result came from cache")
+    attribution: list[TokenAttribution] | None = Field(
+        default=None, description="Top tokens that influenced the prediction (model source only)"
+    )
 
 
 class BatchPredictRequest(BaseModel):

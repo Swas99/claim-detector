@@ -38,6 +38,7 @@ async def predict(body: PredictRequest, request: Request):
         confidence=round(result.confidence, 4),
         source=result.source,
         cached=result.cached,
+        attribution=result.attribution,
     )
 
 

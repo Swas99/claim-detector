@@ -78,7 +78,7 @@ class TemperatureScaler:
 
     def save(self, path: Path) -> None:
         with open(path, "w") as f:
-            json.dump({"temperature": self.temperature}, f)
+            json.dump({"temperature": float(self.temperature)}, f)
 
     @classmethod
     def load(cls, path: Path) -> "TemperatureScaler":

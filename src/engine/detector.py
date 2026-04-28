@@ -14,6 +14,7 @@ from pathlib import Path
 import numpy as np
 
 from src.config import settings
+from src.engine.attribution import AttentionAttributor
 from src.engine.cache import PredictionCache
 from src.engine.calibration import TemperatureScaler
 from src.engine.fast_filter import fast_filter
@@ -28,6 +29,7 @@ class Prediction:
     source: str = "model"  # "model", "fast_filter", "cache"
     cached: bool = False
     filter_rule: str | None = None
+    attribution: list[dict] | None = None
 
 
 class ClaimDetector:
@@ -53,6 +55,12 @@ class ClaimDetector:
             self.calibrator = TemperatureScaler.load(cal_path)
         else:
             self.calibrator = TemperatureScaler(temperature=1.0)
+
+        # Attribution (only available with PyTorch backend)
+        if self.runner.backend == "pytorch":
+            self.attributor = AttentionAttributor(self.runner.model, self.runner.tokenizer)
+        else:
+            self.attributor = None
 
     def predict(self, text: str) -> Prediction:
         """Run the full prediction pipeline on a single sentence."""
@@ -93,10 +101,17 @@ class ClaimDetector:
         claim_prob = float(probs[1])
 
         is_claim = claim_prob >= settings.confidence_threshold
+
+        # 4b. Attribution (token importance)
+        attr = None
+        if self.attributor is not None:
+            attr = self.attributor.attribute(text)
+
         pred = Prediction(
             is_claim=is_claim,
             confidence=claim_prob,
             source="model",
+            attribution=attr,
         )
 
         # 5. Cache store
