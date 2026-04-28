@@ -23,7 +23,10 @@ DATA_FILES = {
 
 
 def download_dataset(data_dir: Path | None = None) -> None:
-    """Download dataset files from GitHub using gh CLI."""
+    """Download dataset files from GitHub using gh CLI.
+
+    Requires `gh` (GitHub CLI) and `curl` to be installed.
+    """
     data_dir = data_dir or settings.data_dir
 
     for split, (repo_path, local_name, _) in DATA_FILES.items():
@@ -33,16 +36,28 @@ def download_dataset(data_dir: Path | None = None) -> None:
             continue
 
         print(f"  {split}: downloading {repo_path}...")
-        result = subprocess.run(
-            ["gh", "api", f"repos/VeritaResearch/claim-extraction/contents/data/{repo_path}",
-             "--jq", ".download_url"],
-            capture_output=True, text=True, check=True,
-        )
-        download_url = result.stdout.strip()
-        subprocess.run(
-            ["curl", "-sL", "-o", str(local_path), download_url],
-            check=True,
-        )
+        try:
+            result = subprocess.run(
+                ["gh", "api", f"repos/VeritaResearch/claim-extraction/contents/data/{repo_path}",
+                 "--jq", ".download_url"],
+                capture_output=True, text=True, check=True,
+            )
+            download_url = result.stdout.strip()
+            subprocess.run(
+                ["curl", "-sL", "-o", str(local_path), download_url],
+                check=True,
+            )
+        except FileNotFoundError as e:
+            raise RuntimeError(
+                f"Required CLI tool not found: {e.filename}. "
+                "Install GitHub CLI (gh) and curl, or download the dataset manually "
+                "from https://github.com/VeritaResearch/claim-extraction"
+            ) from e
+        except subprocess.CalledProcessError as e:
+            raise RuntimeError(
+                f"Failed to download {split} dataset: {e.stderr or e}. "
+                "Check your network connection and GitHub CLI authentication."
+            ) from e
         print(f"  {split}: saved to {local_path}")
 
 

@@ -12,6 +12,10 @@ dependencies = [
     "xgboost>=2.0.0",
     "onnxruntime>=1.17.0",
     "onnx>=1.16.0",
+    "optimum[onnxruntime]>=1.19.0",
+    "sentencepiece>=0.2.0",
+    "tiktoken>=0.7.0",
+    "accelerate>=0.30.0",
     # API
     "fastapi>=0.111.0",
     "uvicorn[standard]>=0.29.0",
@@ -38,7 +42,7 @@ dev = [
 
 [build-system]
 requires = ["setuptools>=69.0"]
-build-backend = "setuptools.backends._legacy:_Backend"
+build-backend = "setuptools.build_meta"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

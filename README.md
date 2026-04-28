@@ -68,16 +68,16 @@ See [docs/architecture.md](docs/architecture.md) for the full production archite
 
 ## Models
 
-Four models trained and compared on the same dataset:
+Four models trained and compared on the same dataset (composite claim detection, 2,600 test samples):
 
-| Model | Params | F1 Score | Inference (CPU) | Role |
-|---|---|---|---|---|
-| TF-IDF + XGBoost | ~2MB | ~0.82 | ~1ms | Classical baseline |
-| DistilBERT | 66M | ~0.89 | ~25ms | Primary (deployed) |
-| BERT-base | 110M | ~0.91 | ~50ms | Paper reproduction |
-| DeBERTa-v3-base | 86M | ~0.91 | ~55ms | SOTA comparison |
+| Model | Params | F1 Score | Accuracy | Training Time | Role |
+|---|---|---|---|---|---|
+| TF-IDF + XGBoost | ~2MB | 0.797 | 82.0% | <1s | Classical baseline |
+| DistilBERT | 66M | 0.905 | 91.1% | 12 min (MPS) | Deployed model |
+| BERT-base | 110M | 0.905 | 91.2% | 23 min (MPS) | Paper reproduction |
+| ModernBERT | 150M | 0.917 | 92.2% | 34 min (MPS) | Best overall |
 
-See [notebooks/training_report.ipynb](notebooks/training_report.ipynb) for detailed metrics, confusion matrices, and out-of-domain analysis.
+Note: DeBERTa-v3 was attempted but has numerical instability (NaN loss) on Apple Silicon MPS. ModernBERT was used as the SOTA comparison instead.
 
 ## Project Structure
 

@@ -78,14 +78,17 @@ async def model_info(request: Request):
     metrics_path = settings.model_dir / settings.active_model / "metrics.json"
     metrics = None
     if metrics_path.exists():
-        with open(metrics_path) as f:
-            raw = json.load(f)
-        metrics = {
-            "accuracy": raw.get("accuracy"),
-            "precision": raw.get("precision"),
-            "recall": raw.get("recall"),
-            "f1": raw.get("f1"),
-        }
+        try:
+            with open(metrics_path) as f:
+                raw = json.load(f)
+            metrics = {
+                "accuracy": raw.get("accuracy"),
+                "precision": raw.get("precision"),
+                "recall": raw.get("recall"),
+                "f1": raw.get("f1"),
+            }
+        except (json.JSONDecodeError, OSError):
+            metrics = None
 
     return ModelInfoResponse(
         model_name=info["model_name"],

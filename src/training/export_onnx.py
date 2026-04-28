@@ -9,12 +9,13 @@ Usage:
 """
 
 import argparse
+import inspect
 import json
+import shutil
 import time
 from pathlib import Path
 
 import numpy as np
-import onnxruntime as ort
 from optimum.onnxruntime import ORTModelForSequenceClassification
 from transformers import AutoModelForSequenceClassification, AutoTokenizer
 
@@ -44,7 +45,6 @@ def export_to_onnx(
     # Copy source metrics
     metrics_src = model_dir / "metrics.json"
     if metrics_src.exists():
-        import shutil
         shutil.copy2(metrics_src, output_dir / "source_metrics.json")
 
     onnx_path = output_dir / "model.onnx"
@@ -82,7 +82,6 @@ def benchmark(
 
     # PyTorch benchmark
     print("\nBenchmarking PyTorch...")
-    import inspect
     import torch
     pt_model = AutoModelForSequenceClassification.from_pretrained(model_dir)
     pt_model.eval()
@@ -105,29 +104,21 @@ def benchmark(
     # ONNX Runtime benchmark
     print("Benchmarking ONNX Runtime...")
     ort_model = ORTModelForSequenceClassification.from_pretrained(str(onnx_dir))
-
-    ort_inputs = tokenizer(
-        test_sentences,
-        return_tensors="np",
-        padding="max_length",
-        truncation=True,
-        max_length=max_length,
-    )
+    ort_inputs = {k: v for k, v in pt_inputs.items()}  # Same filtered inputs
 
     for _ in range(5):
-        ort_model(**tokenizer(test_sentences, return_tensors="pt", padding="max_length", truncation=True, max_length=max_length))
+        ort_model(**ort_inputs)
 
     ort_times = []
     for _ in range(n_runs):
-        pt_inputs = tokenizer(test_sentences, return_tensors="pt", padding="max_length", truncation=True, max_length=max_length)
         start = time.perf_counter()
-        ort_model(**pt_inputs)
+        ort_model(**ort_inputs)
         ort_times.append(time.perf_counter() - start)
 
     # Verify outputs match
     with torch.no_grad():
         pt_logits = pt_model(**pt_inputs).logits.numpy()
-    ort_out = ort_model(**pt_inputs)
+    ort_out = ort_model(**ort_inputs)
     ort_logits = ort_out.logits.detach().numpy()
     max_diff = float(np.max(np.abs(pt_logits - ort_logits)))
 

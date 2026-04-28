@@ -1,4 +1,4 @@
-.PHONY: setup train train-tfidf train-distilbert train-bert train-deberta export-onnx serve test load-test docker-build docker-up clean
+.PHONY: setup train train-tfidf train-distilbert train-bert train-modernbert export-onnx serve test load-test docker-build docker-up clean
 
 PYTHON := python
 VENV := .venv
@@ -26,10 +26,10 @@ train-distilbert:
 train-bert:
 	$(PY) -m src.training.train_transformer --model bert-base-uncased --epochs 5 --batch-size 16
 
-train-deberta:
-	$(PY) -m src.training.train_transformer --model microsoft/deberta-v3-base --epochs 5 --batch-size 16
+train-modernbert:
+	$(PY) -m src.training.train_transformer --model answerdotai/ModernBERT-base --epochs 5 --batch-size 16
 
-train: train-tfidf train-distilbert train-bert train-deberta
+train: train-tfidf train-distilbert train-bert train-modernbert
 
 export-onnx:
 	$(PY) -m src.training.export_onnx

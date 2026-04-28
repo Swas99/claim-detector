@@ -11,6 +11,7 @@ Usage:
 
 import argparse
 import json
+import shutil
 import time
 from pathlib import Path
 
@@ -184,7 +185,8 @@ def train(
     print(f"  Recall:    {metrics['recall']:.4f}")
     print(f"  F1 Score:  {metrics['f1']:.4f}")
     print(f"  Train Loss: {metrics['train_loss']:.4f}")
-    print(f"  Eval Loss:  {metrics['eval_loss']:.4f}")
+    if metrics["eval_loss"] is not None:
+        print(f"  Eval Loss:  {metrics['eval_loss']:.4f}")
     print(f"\nConfusion Matrix:")
     cm = metrics["confusion_matrix"]
     print(f"  TN={cm[0][0]}  FP={cm[0][1]}")
@@ -198,7 +200,6 @@ def train(
         json.dump(metrics, f, indent=2, default=str)
 
     # Clean up checkpoints to save disk space
-    import shutil
     if checkpoint_dir.exists():
         shutil.rmtree(checkpoint_dir)
 

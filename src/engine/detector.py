@@ -114,25 +114,28 @@ class ClaimDetector:
         Uses the fast filter for obvious cases and batches the rest
         through the model for efficiency.
         """
-        results: list[Prediction | None] = [None] * len(texts)
+        results: list[Prediction] = []
         model_indices: list[int] = []
         model_texts: list[str] = []
 
+        # First pass: resolve from cache/filter, collect model-needed indices
         for i, text in enumerate(texts):
+            resolved = False
+
             # Cache lookup
             if self.cache is not None:
                 cached = self.cache.get(text)
                 if cached is not None:
-                    results[i] = Prediction(
+                    results.append(Prediction(
                         is_claim=cached["is_claim"],
                         confidence=cached["confidence"],
                         source="cache",
                         cached=True,
-                    )
-                    continue
+                    ))
+                    resolved = True
 
             # Fast filter
-            if self.enable_fast_filter:
+            if not resolved and self.enable_fast_filter:
                 ff_result = fast_filter(text)
                 if ff_result.decision is not None:
                     pred = Prediction(
@@ -141,19 +144,21 @@ class ClaimDetector:
                         source="fast_filter",
                         filter_rule=ff_result.rule,
                     )
-                    results[i] = pred
+                    results.append(pred)
                     if self.cache is not None:
                         self.cache.put(text, {
                             "is_claim": pred.is_claim,
                             "confidence": pred.confidence,
                         })
-                    continue
+                    resolved = True
 
-            # Needs model
-            model_indices.append(i)
-            model_texts.append(text)
+            if not resolved:
+                # Placeholder — will be replaced after model inference
+                model_indices.append(i)
+                model_texts.append(text)
+                results.append(Prediction(is_claim=False, confidence=0.0, source="pending"))
 
-        # Batch model inference for remaining
+        # Second pass: batch model inference for unresolved
         if model_texts:
             logits = self.runner.predict(model_texts)
             probs = self.calibrator.calibrate(logits)
@@ -172,7 +177,7 @@ class ClaimDetector:
                         "confidence": pred.confidence,
                     })
 
-        return results  # type: ignore
+        return results
 
     @property
     def info(self) -> dict:
