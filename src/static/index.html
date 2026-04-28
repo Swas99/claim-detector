@@ -258,7 +258,6 @@
             </div>
             <div class="meta">
                 <div class="meta-item">Source: <span id="meta-source"></span></div>
-                <div class="meta-item">Cached: <span id="meta-cached"></span></div>
             </div>
         </div>
     </div>
@@ -336,7 +335,6 @@
 
                 // Meta
                 document.getElementById('meta-source').textContent = data.source;
-                document.getElementById('meta-cached').textContent = data.cached ? 'yes' : 'no';
 
                 resultDiv.classList.add('visible');
             } catch (e) {
