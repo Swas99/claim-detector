@@ -1,24 +1,24 @@
-"""ClaimDetector: orchestrates the full inference pipeline.
+"""ClaimDetector: orchestrates the inference pipeline.
+
+Supports multiple models and ensemble prediction.
 
 Pipeline:
-    1. Cache lookup (exact match)
-    2. Fast filter (rule-based skip for obvious cases)
-    3. Model inference (transformer)
-    4. Confidence calibration (temperature scaling)
-    5. Cache store
+    1. Model inference (single model or ensemble of all transformers)
+    2. Confidence calibration (temperature scaling)
+    3. Token attribution (attention weights) — single model only
 """
 
-from dataclasses import dataclass, field
+import inspect
+from dataclasses import dataclass
 from pathlib import Path
 
 import numpy as np
+import torch
+from transformers import AutoModelForSequenceClassification, AutoTokenizer
 
 from src.config import settings
 from src.engine.attribution import AttentionAttributor
-from src.engine.cache import PredictionCache
 from src.engine.calibration import TemperatureScaler
-from src.engine.fast_filter import fast_filter
-from src.engine.model_runner import ModelRunner
 
 
 @dataclass
@@ -26,181 +26,152 @@ class Prediction:
     """Single prediction result."""
     is_claim: bool
     confidence: float
-    source: str = "model"  # "model", "fast_filter", "cache"
-    cached: bool = False
-    filter_rule: str | None = None
+    model: str = "distilbert-base-uncased"
     attribution: list[dict] | None = None
 
 
+@dataclass
+class ComparisonResult:
+    """All models' predictions for one sentence."""
+    text: str
+    predictions: dict[str, Prediction]
+    ensemble: Prediction
+
+
+TRANSFORMER_MODELS = {
+    "distilbert-base-uncased": {"display": "DistilBERT", "hf_name": "distilbert-base-uncased"},
+    "bert-base-uncased": {"display": "BERT", "hf_name": "bert-base-uncased"},
+    "ModernBERT-base": {"display": "ModernBERT", "hf_name": "answerdotai/ModernBERT-base"},
+}
+
+
 class ClaimDetector:
-    """Main claim detection engine.
+    """Multi-model claim detection engine."""
 
-    Orchestrates cache, fast filter, model inference, and calibration.
-    """
+    def __init__(self, model_dir: Path | None = None):
+        self.model_dir = model_dir or settings.model_dir
+        self._models: dict[str, dict] = {}
+        self._attributors: dict[str, AttentionAttributor] = {}
 
-    def __init__(
-        self,
-        model_dir: Path | None = None,
-        use_onnx: bool | None = None,
-        enable_cache: bool = True,
-        enable_fast_filter: bool = True,
-    ):
-        self.runner = ModelRunner(model_dir=model_dir, use_onnx=use_onnx)
-        self.cache = PredictionCache() if enable_cache else None
-        self.enable_fast_filter = enable_fast_filter
-
-        # Load calibration if available
-        cal_path = settings.model_dir / "calibration.json"
+        # Load calibration
+        cal_path = self.model_dir / "calibration.json"
         if cal_path.exists():
             self.calibrator = TemperatureScaler.load(cal_path)
         else:
             self.calibrator = TemperatureScaler(temperature=1.0)
 
-        # Attribution (only available with PyTorch backend)
-        if self.runner.backend == "pytorch":
-            self.attributor = AttentionAttributor(self.runner.model, self.runner.tokenizer)
-        else:
-            self.attributor = None
+        # Load the default model eagerly
+        self._load_model(settings.active_model)
 
-    def predict(self, text: str) -> Prediction:
-        """Run the full prediction pipeline on a single sentence."""
+    def _load_model(self, model_name: str) -> None:
+        """Load a model if not already loaded."""
+        if model_name in self._models:
+            return
 
-        # 1. Cache lookup
-        if self.cache is not None:
-            cached = self.cache.get(text)
-            if cached is not None:
-                return Prediction(
-                    is_claim=cached["is_claim"],
-                    confidence=cached["confidence"],
-                    source="cache",
-                    cached=True,
-                )
+        model_path = self.model_dir / model_name
+        if not model_path.exists():
+            raise FileNotFoundError(f"Model not found: {model_path}")
 
-        # 2. Fast filter
-        if self.enable_fast_filter:
-            ff_result = fast_filter(text)
-            if ff_result.decision is not None:
-                pred = Prediction(
-                    is_claim=ff_result.decision,
-                    confidence=ff_result.confidence,
-                    source="fast_filter",
-                    filter_rule=ff_result.rule,
-                )
-                if self.cache is not None:
-                    self.cache.put(text, {
-                        "is_claim": pred.is_claim,
-                        "confidence": pred.confidence,
-                    })
-                return pred
+        # Load tokenizer — fall back to HuggingFace hub name if local config is broken
+        hf_name = TRANSFORMER_MODELS.get(model_name, {}).get("hf_name")
+        try:
+            tokenizer = AutoTokenizer.from_pretrained(model_path)
+        except (ValueError, OSError):
+            if hf_name:
+                tokenizer = AutoTokenizer.from_pretrained(hf_name)
+            else:
+                raise
+        model = AutoModelForSequenceClassification.from_pretrained(model_path)
+        model.eval()
 
-        # 3. Model inference
-        logits = self.runner.predict_single(text)
+        valid_params = set(inspect.signature(model.forward).parameters.keys())
 
-        # 4. Calibration
+        self._models[model_name] = {
+            "model": model,
+            "tokenizer": tokenizer,
+            "valid_params": valid_params,
+        }
+        self._attributors[model_name] = AttentionAttributor(model, tokenizer)
+
+    def _infer(self, text: str, model_name: str) -> np.ndarray:
+        """Run inference on a single text, return raw logits."""
+        self._load_model(model_name)
+        m = self._models[model_name]
+
+        inputs = m["tokenizer"](
+            text, return_tensors="pt", padding=True,
+            truncation=True, max_length=settings.max_seq_length,
+        )
+        filtered = {k: v for k, v in inputs.items() if k in m["valid_params"]}
+
+        with torch.no_grad():
+            outputs = m["model"](**filtered)
+        return outputs.logits.numpy()[0]
+
+    def predict(self, text: str, model_name: str | None = None) -> Prediction:
+        """Predict with a single model."""
+        model_name = model_name or settings.active_model
+        logits = self._infer(text, model_name)
         probs = self.calibrator.calibrate(logits.reshape(1, -1))[0]
         claim_prob = float(probs[1])
 
-        is_claim = claim_prob >= settings.confidence_threshold
+        attr = self._attributors.get(model_name)
+        attribution = attr.attribute(text) if attr else None
 
-        # 4b. Attribution (token importance)
-        attr = None
-        if self.attributor is not None:
-            attr = self.attributor.attribute(text)
-
-        pred = Prediction(
-            is_claim=is_claim,
+        return Prediction(
+            is_claim=claim_prob >= settings.confidence_threshold,
             confidence=claim_prob,
-            source="model",
-            attribution=attr,
+            model=model_name,
+            attribution=attribution,
         )
 
-        # 5. Cache store
-        if self.cache is not None:
-            self.cache.put(text, {
-                "is_claim": pred.is_claim,
-                "confidence": pred.confidence,
-            })
+    def predict_ensemble(self, text: str) -> Prediction:
+        """Ensemble: average calibrated probabilities from all transformer models."""
+        probs_list = []
+        for model_name in TRANSFORMER_MODELS:
+            try:
+                logits = self._infer(text, model_name)
+                probs = self.calibrator.calibrate(logits.reshape(1, -1))[0]
+                probs_list.append(probs[1])
+            except (FileNotFoundError, Exception):
+                continue
 
-        return pred
+        if not probs_list:
+            return self.predict(text)
 
-    def predict_batch(self, texts: list[str]) -> list[Prediction]:
-        """Run prediction on multiple sentences.
+        avg_prob = float(np.mean(probs_list))
+        return Prediction(
+            is_claim=avg_prob >= settings.confidence_threshold,
+            confidence=avg_prob,
+            model="ensemble",
+        )
 
-        Uses the fast filter for obvious cases and batches the rest
-        through the model for efficiency.
-        """
-        results: list[Prediction] = []
-        model_indices: list[int] = []
-        model_texts: list[str] = []
+    def compare(self, text: str) -> ComparisonResult:
+        """Run all models and return side-by-side comparison."""
+        predictions = {}
+        for model_name, info in TRANSFORMER_MODELS.items():
+            try:
+                predictions[info["display"]] = self.predict(text, model_name)
+            except Exception:
+                continue
 
-        # First pass: resolve from cache/filter, collect model-needed indices
-        for i, text in enumerate(texts):
-            resolved = False
+        ensemble = self.predict_ensemble(text)
+        return ComparisonResult(text=text, predictions=predictions, ensemble=ensemble)
 
-            # Cache lookup
-            if self.cache is not None:
-                cached = self.cache.get(text)
-                if cached is not None:
-                    results.append(Prediction(
-                        is_claim=cached["is_claim"],
-                        confidence=cached["confidence"],
-                        source="cache",
-                        cached=True,
-                    ))
-                    resolved = True
-
-            # Fast filter
-            if not resolved and self.enable_fast_filter:
-                ff_result = fast_filter(text)
-                if ff_result.decision is not None:
-                    pred = Prediction(
-                        is_claim=ff_result.decision,
-                        confidence=ff_result.confidence,
-                        source="fast_filter",
-                        filter_rule=ff_result.rule,
-                    )
-                    results.append(pred)
-                    if self.cache is not None:
-                        self.cache.put(text, {
-                            "is_claim": pred.is_claim,
-                            "confidence": pred.confidence,
-                        })
-                    resolved = True
-
-            if not resolved:
-                # Placeholder — will be replaced after model inference
-                model_indices.append(i)
-                model_texts.append(text)
-                results.append(Prediction(is_claim=False, confidence=0.0, source="pending"))
-
-        # Second pass: batch model inference for unresolved
-        if model_texts:
-            logits = self.runner.predict(model_texts)
-            probs = self.calibrator.calibrate(logits)
-
-            for j, idx in enumerate(model_indices):
-                claim_prob = float(probs[j, 1])
-                pred = Prediction(
-                    is_claim=claim_prob >= settings.confidence_threshold,
-                    confidence=claim_prob,
-                    source="model",
-                )
-                results[idx] = pred
-                if self.cache is not None:
-                    self.cache.put(model_texts[j], {
-                        "is_claim": pred.is_claim,
-                        "confidence": pred.confidence,
-                    })
-
-        return results
+    @property
+    def available_models(self) -> list[str]:
+        """List all available model names."""
+        available = []
+        for model_name in TRANSFORMER_MODELS:
+            if (self.model_dir / model_name).exists():
+                available.append(model_name)
+        available.append("ensemble")
+        return available
 
     @property
     def info(self) -> dict:
-        """Return model and pipeline info."""
         return {
-            **self.runner.info,
+            "default_model": settings.active_model,
+            "available_models": self.available_models,
             "calibration_temperature": self.calibrator.temperature,
-            "cache_enabled": self.cache is not None,
-            "fast_filter_enabled": self.enable_fast_filter,
-            "cache_stats": self.cache.stats if self.cache else None,
         }

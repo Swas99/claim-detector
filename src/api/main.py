@@ -29,9 +29,9 @@ limiter = Limiter(key_func=get_remote_address, default_limits=[settings.rate_lim
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Load model on startup, cleanup on shutdown."""
-    logger.info("loading_model", model=settings.active_model, use_onnx=settings.use_onnx)
+    logger.info("loading_model", model=settings.active_model)
     start = time.time()
-    app.state.detector = ClaimDetector(use_onnx=settings.use_onnx)
+    app.state.detector = ClaimDetector()
     app.state.feedback_store = FeedbackStore()
     elapsed = time.time() - start
     logger.info("model_loaded", elapsed_s=round(elapsed, 2))

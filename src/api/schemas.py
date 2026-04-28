@@ -11,6 +11,10 @@ class PredictRequest(BaseModel):
         description="Natural language sentence to classify",
         examples=["The Empire State Building is the tallest building in New York City."],
     )
+    model: str | None = Field(
+        default=None,
+        description="Model to use (distilbert-base-uncased, bert-base-uncased, ModernBERT-base, ensemble). Default: distilbert-base-uncased",
+    )
 
 
 class TokenAttribution(BaseModel):
@@ -21,11 +25,26 @@ class TokenAttribution(BaseModel):
 class PredictResponse(BaseModel):
     is_claim: bool = Field(description="Whether the sentence is a factual claim")
     confidence: float = Field(description="Model confidence (0.0 to 1.0)")
-    source: str = Field(description="Prediction source: model, fast_filter, or cache")
-    cached: bool = Field(default=False, description="Whether result came from cache")
+    model: str = Field(description="Model used for prediction")
     attribution: list[TokenAttribution] | None = Field(
-        default=None, description="Top tokens that influenced the prediction (model source only)"
+        default=None, description="Top tokens that influenced the prediction"
     )
+
+
+class CompareRequest(BaseModel):
+    text: str = Field(..., min_length=1, max_length=5000)
+
+
+class ModelPrediction(BaseModel):
+    model: str
+    is_claim: bool
+    confidence: float
+
+
+class CompareResponse(BaseModel):
+    text: str
+    predictions: list[ModelPrediction]
+    ensemble: ModelPrediction
 
 
 class BatchPredictRequest(BaseModel):
@@ -35,6 +54,7 @@ class BatchPredictRequest(BaseModel):
         max_length=100,
         description="List of sentences to classify (max 100)",
     )
+    model: str | None = Field(default=None)
 
 
 class BatchPredictResponse(BaseModel):
@@ -48,13 +68,9 @@ class HealthResponse(BaseModel):
 
 
 class ModelInfoResponse(BaseModel):
-    model_name: str
-    backend: str
-    max_length: int
+    default_model: str
+    available_models: list[str]
     calibration_temperature: float
-    cache_enabled: bool
-    fast_filter_enabled: bool
-    cache_stats: dict | None = None
     metrics: dict | None = None
 
 

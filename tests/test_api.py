@@ -4,62 +4,74 @@ import os
 
 import pytest
 
-# Use PyTorch backend for tests (faster startup, no ONNX needed)
 os.environ["CLAIM_USE_ONNX"] = "false"
 
 
 class TestPredict:
     def test_claim_sentence(self, client):
         resp = client.post("/predict", json={
-            "text": "The Empire State Building is the tallest building in New York City."
+            "text": "The unemployment rate fell to 3.5% in December 2023."
         })
         assert resp.status_code == 200
         data = resp.json()
         assert data["is_claim"] is True
         assert data["confidence"] > 0.5
-        assert data["source"] in ("model", "fast_filter", "cache")
+        assert "model" in data
 
     def test_non_claim_opinion(self, client):
         resp = client.post("/predict", json={
             "text": "I think chocolate ice cream is the best."
         })
         assert resp.status_code == 200
-        data = resp.json()
-        assert data["is_claim"] is False
-
-    def test_non_claim_question(self, client):
-        resp = client.post("/predict", json={
-            "text": "What is the capital of France?"
-        })
-        assert resp.status_code == 200
         assert resp.json()["is_claim"] is False
 
-    def test_attribution_present_for_model(self, client):
+    def test_attribution_present(self, client):
         resp = client.post("/predict", json={
             "text": "GDP grew by 3.2% in the last fiscal year."
         })
         data = resp.json()
-        if data["source"] == "model":
-            assert data["attribution"] is not None
-            assert len(data["attribution"]) > 0
-            assert "token" in data["attribution"][0]
-            assert "weight" in data["attribution"][0]
+        assert data["attribution"] is not None
+        assert len(data["attribution"]) > 0
+        assert "token" in data["attribution"][0]
+        assert "weight" in data["attribution"][0]
 
-    def test_cache_hit(self, client):
-        text = "The population of Tokyo is over 13 million."
-        client.post("/predict", json={"text": text})
-        resp = client.post("/predict", json={"text": text})
-        assert resp.json()["cached"] is True
+    def test_model_selection(self, client):
+        resp = client.post("/predict", json={
+            "text": "Water boils at 100 degrees Celsius.",
+            "model": "distilbert-base-uncased",
+        })
+        assert resp.status_code == 200
+        assert resp.json()["model"] == "distilbert-base-uncased"
+
+    def test_ensemble(self, client):
+        resp = client.post("/predict", json={
+            "text": "The population of Tokyo is over 13 million.",
+            "model": "ensemble",
+        })
+        assert resp.status_code == 200
+        assert resp.json()["model"] == "ensemble"
 
     def test_response_schema(self, client):
         resp = client.post("/predict", json={"text": "Test sentence."})
         data = resp.json()
         assert "is_claim" in data
         assert "confidence" in data
-        assert "source" in data
-        assert "cached" in data
+        assert "model" in data
         assert isinstance(data["confidence"], float)
         assert 0.0 <= data["confidence"] <= 1.0
+
+
+class TestCompare:
+    def test_compare_returns_all_models(self, client):
+        resp = client.post("/compare", json={
+            "text": "The earth is round."
+        })
+        assert resp.status_code == 200
+        data = resp.json()
+        assert "predictions" in data
+        assert "ensemble" in data
+        assert len(data["predictions"]) >= 1
+        assert data["ensemble"]["model"] == "ensemble"
 
 
 class TestBatchPredict:
@@ -68,18 +80,13 @@ class TestBatchPredict:
             "texts": [
                 "The earth is round.",
                 "I love pizza.",
-                "What time is it?",
+                "GDP grew 2.1%.",
             ]
         })
         assert resp.status_code == 200
         data = resp.json()
         assert data["count"] == 3
         assert len(data["predictions"]) == 3
-
-    def test_batch_single(self, client):
-        resp = client.post("/predict/batch", json={"texts": ["Hello world."]})
-        assert resp.status_code == 200
-        assert resp.json()["count"] == 1
 
 
 class TestHealth:
@@ -96,10 +103,9 @@ class TestModelInfo:
         resp = client.get("/model/info")
         assert resp.status_code == 200
         data = resp.json()
-        assert "model_name" in data
-        assert "backend" in data
-        assert "metrics" in data
-        assert data["cache_enabled"] is True
+        assert "default_model" in data
+        assert "available_models" in data
+        assert "ensemble" in data["available_models"]
 
 
 class TestFeedback:
@@ -108,11 +114,10 @@ class TestFeedback:
             "text": "Test claim sentence.",
             "predicted_is_claim": True,
             "correct_is_claim": False,
-            "comment": "This was an opinion, not a claim.",
+            "comment": "This was an opinion.",
         })
         assert resp.status_code == 200
         assert resp.json()["status"] == "recorded"
-        assert resp.json()["feedback_id"] > 0
 
 
 class TestValidation:

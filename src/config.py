@@ -21,10 +21,6 @@ class Settings(BaseSettings):
     rate_limit: str = "60/minute"
     cors_origins: list[str] = ["*"]
 
-    # Cache
-    cache_max_size: int = 10_000
-    cache_ttl_seconds: int = 3600
-
     # Inference
     confidence_threshold: float = 0.5
     max_batch_size: int = 100

@@ -1,17 +1,19 @@
 """API route definitions."""
 
 import json
-import time
 
 from fastapi import APIRouter, Request
 
 from src.api.schemas import (
     BatchPredictRequest,
     BatchPredictResponse,
+    CompareRequest,
+    CompareResponse,
     FeedbackRequest,
     FeedbackResponse,
     HealthResponse,
     ModelInfoResponse,
+    ModelPrediction,
     PredictRequest,
     PredictResponse,
 )
@@ -32,13 +34,43 @@ def get_feedback_store(request: Request):
 async def predict(body: PredictRequest, request: Request):
     """Classify a single sentence as claim or not."""
     detector = get_detector(request)
-    result = detector.predict(body.text)
+
+    if body.model == "ensemble":
+        result = detector.predict_ensemble(body.text)
+    else:
+        result = detector.predict(body.text, model_name=body.model)
+
     return PredictResponse(
         is_claim=result.is_claim,
         confidence=round(result.confidence, 4),
-        source=result.source,
-        cached=result.cached,
+        model=result.model,
         attribution=result.attribution,
+    )
+
+
+@router.post("/compare", response_model=CompareResponse)
+async def compare(body: CompareRequest, request: Request):
+    """Run all models on a sentence and return side-by-side comparison."""
+    detector = get_detector(request)
+    result = detector.compare(body.text)
+
+    predictions = [
+        ModelPrediction(
+            model=name,
+            is_claim=pred.is_claim,
+            confidence=round(pred.confidence, 4),
+        )
+        for name, pred in result.predictions.items()
+    ]
+
+    return CompareResponse(
+        text=result.text,
+        predictions=predictions,
+        ensemble=ModelPrediction(
+            model="ensemble",
+            is_claim=result.ensemble.is_claim,
+            confidence=round(result.ensemble.confidence, 4),
+        ),
     )
 
 
@@ -46,13 +78,16 @@ async def predict(body: PredictRequest, request: Request):
 async def predict_batch(body: BatchPredictRequest, request: Request):
     """Classify multiple sentences in a single request (max 100)."""
     detector = get_detector(request)
-    results = detector.predict_batch(body.texts)
+    results = [
+        detector.predict_ensemble(t) if body.model == "ensemble"
+        else detector.predict(t, model_name=body.model)
+        for t in body.texts
+    ]
     predictions = [
         PredictResponse(
             is_claim=r.is_claim,
             confidence=round(r.confidence, 4),
-            source=r.source,
-            cached=r.cached,
+            model=r.model,
         )
         for r in results
     ]
@@ -65,17 +100,16 @@ async def health(request: Request):
     detector = get_detector(request)
     return HealthResponse(
         status="healthy",
-        model_loaded=detector.runner.model is not None,
+        model_loaded=len(detector._models) > 0,
     )
 
 
 @router.get("/model/info", response_model=ModelInfoResponse)
 async def model_info(request: Request):
-    """Return model metadata, backend, and cache stats."""
+    """Return model metadata and evaluation metrics."""
     detector = get_detector(request)
     info = detector.info
 
-    # Load evaluation metrics if available
     metrics_path = settings.model_dir / settings.active_model / "metrics.json"
     metrics = None
     if metrics_path.exists():
@@ -92,13 +126,9 @@ async def model_info(request: Request):
             metrics = None
 
     return ModelInfoResponse(
-        model_name=info["model_name"],
-        backend=info["backend"],
-        max_length=info["max_length"],
+        default_model=info["default_model"],
+        available_models=info["available_models"],
         calibration_temperature=info["calibration_temperature"],
-        cache_enabled=info["cache_enabled"],
-        fast_filter_enabled=info["fast_filter_enabled"],
-        cache_stats=info.get("cache_stats"),
         metrics=metrics,
     )
 
