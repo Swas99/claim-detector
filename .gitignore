@@ -1,0 +1,62 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Virtual environment
+.venv/
+venv/
+env/
+
+# Model artifacts (large files)
+models/*.pt
+models/*.onnx
+models/*.bin
+models/*.safetensors
+models/*/
+!models/README.md
+
+# Dataset (downloaded at setup)
+data/*.csv
+data/*.tsv
+data/*.json
+data/claim-extraction/
+!data/README.md
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Logs
+*.log
+logs/
+
+# Environment
+.env
+.env.local
+
+# SQLite (feedback store)
+*.db
+*.sqlite3
+
+# Test / coverage
+.coverage
+htmlcov/
+.pytest_cache/
+
+# Locust reports
+locust_report*.html
