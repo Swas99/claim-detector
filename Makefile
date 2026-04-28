@@ -1,4 +1,4 @@
-.PHONY: setup train train-tfidf train-distilbert train-bert train-modernbert export-onnx serve test load-test docker-build docker-up clean
+.PHONY: setup train train-tfidf train-distilbert train-bert train-modernbert fit-calibration export-onnx serve test load-test docker-build docker-up clean
 
 PYTHON := python
 VENV := .venv
@@ -29,7 +29,10 @@ train-bert:
 train-modernbert:
 	$(PY) -m src.training.train_transformer --model answerdotai/ModernBERT-base --epochs 5 --batch-size 16
 
-train: train-tfidf train-distilbert train-bert train-modernbert
+train: train-tfidf train-distilbert train-bert train-modernbert fit-calibration
+
+fit-calibration:
+	$(PY) -m src.training.fit_calibration
 
 export-onnx:
 	$(PY) -m src.training.export_onnx
