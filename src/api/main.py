@@ -5,11 +5,12 @@ Loads the ClaimDetector on startup and serves prediction endpoints.
 
 import time
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 import structlog
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import FileResponse, JSONResponse
 from slowapi import Limiter
 from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
@@ -82,3 +83,11 @@ async def rate_limit_handler(request: Request, exc: RateLimitExceeded):
 
 # Mount routes
 app.include_router(router)
+
+# Serve demo UI
+STATIC_DIR = Path(__file__).parent.parent / "static"
+
+
+@app.get("/", include_in_schema=False)
+async def demo_ui():
+    return FileResponse(STATIC_DIR / "index.html")

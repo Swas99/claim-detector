@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Claim Detector</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #0f1117;
+            color: #e0e0e0;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 40px 20px;
+        }
+        .container { max-width: 680px; width: 100%; }
+        h1 {
+            font-size: 28px;
+            font-weight: 600;
+            margin-bottom: 6px;
+            color: #fff;
+        }
+        .subtitle {
+            color: #888;
+            font-size: 14px;
+            margin-bottom: 32px;
+        }
+        .input-group {
+            position: relative;
+            margin-bottom: 16px;
+        }
+        textarea {
+            width: 100%;
+            min-height: 100px;
+            padding: 16px;
+            background: #1a1d27;
+            border: 1px solid #2a2d3a;
+            border-radius: 10px;
+            color: #e0e0e0;
+            font-size: 15px;
+            font-family: inherit;
+            resize: vertical;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+        textarea:focus { border-color: #4f8ff7; }
+        textarea::placeholder { color: #555; }
+        .controls {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+        button {
+            padding: 10px 28px;
+            background: #4f8ff7;
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        button:hover { background: #3a7ae0; }
+        button:disabled { background: #333; cursor: not-allowed; }
+        .examples {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            flex: 1;
+        }
+        .example-chip {
+            padding: 5px 12px;
+            background: #1a1d27;
+            border: 1px solid #2a2d3a;
+            border-radius: 16px;
+            font-size: 12px;
+            color: #888;
+            cursor: pointer;
+            transition: all 0.2s;
+            white-space: nowrap;
+        }
+        .example-chip:hover { border-color: #4f8ff7; color: #bbb; }
+
+        /* Result */
+        .result {
+            margin-top: 24px;
+            padding: 24px;
+            background: #1a1d27;
+            border-radius: 10px;
+            border: 1px solid #2a2d3a;
+            display: none;
+        }
+        .result.visible { display: block; }
+        .result-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+        .badge {
+            padding: 6px 16px;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .badge.claim { background: #1a3a2a; color: #4ade80; border: 1px solid #2d5a3d; }
+        .badge.not-claim { background: #3a1a1a; color: #f87171; border: 1px solid #5a2d2d; }
+        .confidence-text {
+            font-size: 14px;
+            color: #888;
+        }
+        .confidence-text span { color: #fff; font-weight: 600; }
+
+        /* Confidence bar */
+        .confidence-bar-container {
+            margin-bottom: 20px;
+        }
+        .confidence-bar-bg {
+            height: 6px;
+            background: #2a2d3a;
+            border-radius: 3px;
+            overflow: hidden;
+        }
+        .confidence-bar-fill {
+            height: 100%;
+            border-radius: 3px;
+            transition: width 0.5s ease;
+        }
+        .confidence-bar-fill.claim { background: #4ade80; }
+        .confidence-bar-fill.not-claim { background: #f87171; }
+
+        /* Attribution */
+        .section-label {
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #666;
+            margin-bottom: 10px;
+        }
+        .attribution {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 16px;
+        }
+        .token-chip {
+            padding: 6px 12px;
+            background: #232636;
+            border-radius: 6px;
+            font-size: 13px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .token-chip .token { color: #e0e0e0; }
+        .token-chip .weight {
+            color: #4f8ff7;
+            font-size: 11px;
+            font-weight: 600;
+        }
+
+        /* Meta */
+        .meta {
+            display: flex;
+            gap: 20px;
+            font-size: 12px;
+            color: #555;
+        }
+        .meta-item span { color: #888; }
+
+        /* Loading */
+        .spinner {
+            display: none;
+            width: 18px;
+            height: 18px;
+            border: 2px solid #333;
+            border-top-color: #4f8ff7;
+            border-radius: 50%;
+            animation: spin 0.6s linear infinite;
+            margin-left: 8px;
+        }
+        .spinner.active { display: inline-block; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* Batch */
+        .batch-results { margin-top: 16px; }
+        .batch-item {
+            padding: 12px 16px;
+            background: #15171f;
+            border-radius: 8px;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 14px;
+        }
+        .batch-item .text { flex: 1; color: #bbb; }
+        .batch-badge {
+            padding: 3px 10px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+        .batch-badge.claim { background: #1a3a2a; color: #4ade80; }
+        .batch-badge.not-claim { background: #3a1a1a; color: #f87171; }
+        .batch-conf { color: #666; font-size: 12px; min-width: 40px; text-align: right; }
+
+        footer {
+            margin-top: 48px;
+            font-size: 12px;
+            color: #444;
+            text-align: center;
+        }
+        footer a { color: #4f8ff7; text-decoration: none; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Claim Detector</h1>
+        <p class="subtitle">Identifies whether a sentence contains a verifiable factual claim</p>
+
+        <div class="input-group">
+            <textarea id="input" placeholder="Enter a sentence to analyze..."></textarea>
+        </div>
+
+        <div class="controls">
+            <button id="analyze" onclick="analyze()">
+                Analyze
+                <div class="spinner" id="spinner"></div>
+            </button>
+            <div class="examples">
+                <div class="example-chip" onclick="setExample(this)">GDP grew 2.1% last quarter.</div>
+                <div class="example-chip" onclick="setExample(this)">I think pizza is great.</div>
+                <div class="example-chip" onclick="setExample(this)">What time is it?</div>
+                <div class="example-chip" onclick="setExample(this)">The earth orbits the sun.</div>
+            </div>
+        </div>
+
+        <div class="result" id="result">
+            <div class="result-header">
+                <div class="badge" id="badge"></div>
+                <div class="confidence-text">Confidence: <span id="conf-value"></span></div>
+            </div>
+            <div class="confidence-bar-container">
+                <div class="confidence-bar-bg">
+                    <div class="confidence-bar-fill" id="conf-bar"></div>
+                </div>
+            </div>
+            <div id="attr-section">
+                <div class="section-label">Key tokens</div>
+                <div class="attribution" id="attribution"></div>
+            </div>
+            <div class="meta">
+                <div class="meta-item">Source: <span id="meta-source"></span></div>
+                <div class="meta-item">Cached: <span id="meta-cached"></span></div>
+            </div>
+        </div>
+    </div>
+
+    <footer>
+        Powered by fine-tuned DistilBERT &middot; <a href="/docs">API Docs</a> &middot; <a href="/model/info">Model Info</a>
+    </footer>
+
+    <script>
+        const input = document.getElementById('input');
+        const btn = document.getElementById('analyze');
+        const spinner = document.getElementById('spinner');
+        const resultDiv = document.getElementById('result');
+
+        function setExample(el) {
+            input.value = el.textContent;
+            analyze();
+        }
+
+        input.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                analyze();
+            }
+        });
+
+        async function analyze() {
+            const text = input.value.trim();
+            if (!text) return;
+
+            btn.disabled = true;
+            spinner.classList.add('active');
+            resultDiv.classList.remove('visible');
+
+            try {
+                const resp = await fetch('/predict', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ text }),
+                });
+                const data = await resp.json();
+
+                if (!resp.ok) {
+                    alert(data.detail || 'Error');
+                    return;
+                }
+
+                // Badge
+                const badge = document.getElementById('badge');
+                badge.textContent = data.is_claim ? 'Claim' : 'Not a Claim';
+                badge.className = 'badge ' + (data.is_claim ? 'claim' : 'not-claim');
+
+                // Confidence
+                const pct = (data.confidence * 100).toFixed(1);
+                document.getElementById('conf-value').textContent = pct + '%';
+                const bar = document.getElementById('conf-bar');
+                bar.style.width = pct + '%';
+                bar.className = 'confidence-bar-fill ' + (data.is_claim ? 'claim' : 'not-claim');
+
+                // Attribution
+                const attrDiv = document.getElementById('attribution');
+                const attrSection = document.getElementById('attr-section');
+                attrDiv.innerHTML = '';
+                if (data.attribution && data.attribution.length > 0) {
+                    attrSection.style.display = 'block';
+                    data.attribution.forEach(a => {
+                        const chip = document.createElement('div');
+                        chip.className = 'token-chip';
+                        chip.innerHTML = `<span class="token">${escapeHtml(a.token)}</span><span class="weight">${(a.weight * 100).toFixed(1)}%</span>`;
+                        attrDiv.appendChild(chip);
+                    });
+                } else {
+                    attrSection.style.display = 'none';
+                }
+
+                // Meta
+                document.getElementById('meta-source').textContent = data.source;
+                document.getElementById('meta-cached').textContent = data.cached ? 'yes' : 'no';
+
+                resultDiv.classList.add('visible');
+            } catch (e) {
+                alert('Failed to connect to API: ' + e.message);
+            } finally {
+                btn.disabled = false;
+                spinner.classList.remove('active');
+            }
+        }
+
+        function escapeHtml(str) {
+            const div = document.createElement('div');
+            div.textContent = str;
+            return div.innerHTML;
+        }
+    </script>
+</body>
+</html>
