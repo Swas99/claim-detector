@@ -78,7 +78,9 @@ def train(
 
     # Load tokenizer and model
     print(f"Loading {model_name}...")
-    tokenizer = AutoTokenizer.from_pretrained(model_name)
+    # DeBERTa-v3 needs use_fast=False due to tiktoken/spm compatibility
+    use_fast = "deberta" not in model_name.lower()
+    tokenizer = AutoTokenizer.from_pretrained(model_name, use_fast=use_fast)
     model = AutoModelForSequenceClassification.from_pretrained(
         model_name,
         num_labels=2,
