@@ -11,7 +11,7 @@ class Settings(BaseSettings):
 
     # Model
     active_model: str = "distilbert-base-uncased"
-    use_onnx: bool = True
+    use_onnx: bool = False
     max_seq_length: int = 128
 
     # API

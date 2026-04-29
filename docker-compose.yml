@@ -6,7 +6,7 @@ services:
     environment:
       - CLAIM_USE_ONNX=false
       - CLAIM_ACTIVE_MODEL=distilbert-base-uncased
-      - CLAIM_RATE_LIMIT=120/minute
+      - CLAIM_RATE_LIMIT=60/minute
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
       interval: 30s
