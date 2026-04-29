@@ -1,10 +1,13 @@
 """API route definitions."""
 
 import json
+import re
 
 from fastapi import APIRouter, Request
 
 from src.api.schemas import (
+    AnalyzeRequest,
+    AnalyzeResponse,
     BatchPredictRequest,
     BatchPredictResponse,
     CompareRequest,
@@ -16,6 +19,7 @@ from src.api.schemas import (
     ModelPrediction,
     PredictRequest,
     PredictResponse,
+    SentenceResult,
 )
 from src.config import settings
 
@@ -144,3 +148,36 @@ async def submit_feedback(body: FeedbackRequest, request: Request):
         comment=body.comment,
     )
     return FeedbackResponse(status="recorded", feedback_id=feedback_id)
+
+
+def _split_sentences(text: str) -> list[str]:
+    """Split a paragraph into sentences. Simple regex-based splitter."""
+    sentences = re.split(r'(?<=[.!?])\s+', text.strip())
+    return [s.strip() for s in sentences if s.strip()]
+
+
+@router.post("/analyze", response_model=AnalyzeResponse)
+async def analyze_paragraph(body: AnalyzeRequest, request: Request):
+    """Analyze a paragraph: split into sentences and classify each one."""
+    detector = get_detector(request)
+    sentences = _split_sentences(body.text)
+
+    results = []
+    for sent in sentences:
+        if body.model == "ensemble":
+            pred = detector.predict_ensemble(sent)
+        else:
+            pred = detector.predict(sent, model_name=body.model)
+        results.append(SentenceResult(
+            text=sent,
+            is_claim=pred.is_claim,
+            confidence=round(pred.confidence, 4),
+        ))
+
+    claims = sum(1 for r in results if r.is_claim)
+    return AnalyzeResponse(
+        sentences=results,
+        total=len(results),
+        claims=claims,
+        non_claims=len(results) - claims,
+    )

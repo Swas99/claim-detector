@@ -86,5 +86,28 @@ class FeedbackResponse(BaseModel):
     feedback_id: int
 
 
+class AnalyzeRequest(BaseModel):
+    text: str = Field(
+        ...,
+        min_length=1,
+        max_length=50000,
+        description="Paragraph or article to analyze",
+    )
+    model: str | None = Field(default=None)
+
+
+class SentenceResult(BaseModel):
+    text: str
+    is_claim: bool
+    confidence: float
+
+
+class AnalyzeResponse(BaseModel):
+    sentences: list[SentenceResult]
+    total: int
+    claims: int
+    non_claims: int
+
+
 class ErrorResponse(BaseModel):
     detail: str

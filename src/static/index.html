@@ -16,12 +16,28 @@
             align-items: center;
             padding: 40px 20px;
         }
-        .container { max-width: 720px; width: 100%; }
+        .container { max-width: 760px; width: 100%; }
         h1 { font-size: 28px; font-weight: 600; margin-bottom: 6px; color: #fff; }
-        .subtitle { color: #888; font-size: 14px; margin-bottom: 32px; }
+        .subtitle { color: #888; font-size: 14px; margin-bottom: 24px; }
+
+        /* Tabs */
+        .tabs { display: flex; gap: 0; margin-bottom: 20px; }
+        .tab {
+            padding: 10px 24px;
+            background: #1a1d27;
+            border: 1px solid #2a2d3a;
+            color: #888;
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .tab:first-child { border-radius: 8px 0 0 8px; }
+        .tab:last-child { border-radius: 0 8px 8px 0; }
+        .tab.active { background: #4f8ff7; color: #fff; border-color: #4f8ff7; }
+
         textarea {
             width: 100%;
-            min-height: 90px;
             padding: 16px;
             background: #1a1d27;
             border: 1px solid #2a2d3a;
@@ -78,22 +94,15 @@
 
         /* Single result */
         .result {
-            margin-top: 20px;
-            padding: 20px;
-            background: #1a1d27;
-            border-radius: 10px;
-            border: 1px solid #2a2d3a;
+            margin-top: 20px; padding: 20px;
+            background: #1a1d27; border-radius: 10px; border: 1px solid #2a2d3a;
             display: none;
         }
         .result.visible { display: block; }
         .result-header { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
         .badge {
-            padding: 5px 14px;
-            border-radius: 6px;
-            font-size: 13px;
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
+            padding: 5px 14px; border-radius: 6px; font-size: 13px;
+            font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;
         }
         .badge.claim { background: #1a3a2a; color: #4ade80; border: 1px solid #2d5a3d; }
         .badge.not-claim { background: #3a1a1a; color: #f87171; border: 1px solid #5a2d2d; }
@@ -106,51 +115,82 @@
         .section-label { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: #555; margin-bottom: 8px; }
         .attribution { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px; }
         .token-chip {
-            padding: 5px 10px;
-            background: #232636;
-            border-radius: 6px;
-            font-size: 12px;
-            display: flex;
-            align-items: center;
-            gap: 5px;
+            padding: 5px 10px; background: #232636; border-radius: 6px;
+            font-size: 12px; display: flex; align-items: center; gap: 5px;
         }
         .token-chip .token { color: #e0e0e0; }
         .token-chip .weight { color: #4f8ff7; font-size: 11px; font-weight: 600; }
         .meta { font-size: 12px; color: #555; }
         .meta span { color: #888; }
 
-        /* Comparison view */
-        .compare-grid {
-            margin-top: 20px;
-            display: grid;
-            grid-template-columns: 1fr;
-            gap: 10px;
-            display: none;
-        }
+        /* Compare view */
+        .compare-grid { margin-top: 20px; display: none; gap: 10px; }
         .compare-grid.visible { display: grid; }
         .compare-card {
-            padding: 16px;
-            background: #1a1d27;
-            border-radius: 8px;
-            border: 1px solid #2a2d3a;
-            display: flex;
-            align-items: center;
-            gap: 14px;
+            padding: 14px 16px; background: #1a1d27; border-radius: 8px;
+            border: 1px solid #2a2d3a; display: flex; align-items: center; gap: 14px;
         }
         .compare-card.ensemble { border-color: #4f8ff7; background: #161a2a; }
         .compare-model { font-size: 13px; color: #aaa; min-width: 100px; font-weight: 500; }
-        .compare-badge {
-            padding: 3px 10px;
-            border-radius: 4px;
-            font-size: 11px;
-            font-weight: 600;
-        }
+        .compare-badge { padding: 3px 10px; border-radius: 4px; font-size: 11px; font-weight: 600; }
         .compare-badge.claim { background: #1a3a2a; color: #4ade80; }
         .compare-badge.not-claim { background: #3a1a1a; color: #f87171; }
-        .compare-conf { color: #888; font-size: 13px; flex: 1; text-align: right; }
+        .compare-conf { color: #888; font-size: 13px; min-width: 50px; text-align: right; }
         .compare-bar { flex: 2; }
         .compare-bar-bg { height: 4px; background: #2a2d3a; border-radius: 2px; overflow: hidden; }
         .compare-bar-fill { height: 100%; border-radius: 2px; }
+
+        /* Paragraph highlighter */
+        .highlight-output {
+            margin-top: 20px; padding: 20px;
+            background: #1a1d27; border-radius: 10px; border: 1px solid #2a2d3a;
+            display: none; line-height: 2.0; font-size: 15px;
+        }
+        .highlight-output.visible { display: block; }
+        .highlight-sentence {
+            padding: 3px 6px; border-radius: 4px; cursor: default;
+            transition: all 0.2s; position: relative;
+        }
+        .highlight-sentence.claim {
+            background: rgba(74, 222, 128, 0.15);
+            border-bottom: 2px solid #4ade80;
+        }
+        .highlight-sentence.not-claim {
+            color: #777;
+        }
+        .highlight-sentence:hover {
+            background: rgba(79, 143, 247, 0.15);
+        }
+        .highlight-tooltip {
+            display: none;
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #232636;
+            border: 1px solid #3a3d4a;
+            border-radius: 6px;
+            padding: 6px 12px;
+            font-size: 12px;
+            white-space: nowrap;
+            z-index: 10;
+            pointer-events: none;
+        }
+        .highlight-sentence:hover .highlight-tooltip { display: block; }
+        .highlight-stats {
+            margin-top: 16px; padding-top: 14px; border-top: 1px solid #2a2d3a;
+            font-size: 13px; color: #888; display: flex; gap: 20px;
+        }
+        .highlight-stats .stat-num { color: #fff; font-weight: 600; }
+        .highlight-legend {
+            display: flex; gap: 16px; margin-bottom: 12px; font-size: 12px; color: #888;
+        }
+        .legend-dot {
+            width: 10px; height: 10px; border-radius: 2px; display: inline-block;
+            margin-right: 4px; vertical-align: middle;
+        }
+        .legend-dot.claim { background: #4ade80; }
+        .legend-dot.not-claim { background: #555; }
 
         .spinner {
             display: none; width: 18px; height: 18px;
@@ -160,6 +200,7 @@
         .spinner.active { display: inline-block; }
         @keyframes spin { to { transform: rotate(360deg); } }
 
+        .hidden { display: none !important; }
         footer { margin-top: 48px; font-size: 12px; color: #444; text-align: center; }
         footer a { color: #4f8ff7; text-decoration: none; }
     </style>
@@ -169,50 +210,80 @@
         <h1>Claim Detector</h1>
         <p class="subtitle">Identifies whether a sentence contains a verifiable factual claim</p>
 
-        <textarea id="input" placeholder="Enter a sentence to analyze..."></textarea>
-
-        <div class="controls">
-            <select id="model-select">
-                <option value="distilbert-base-uncased">DistilBERT</option>
-                <option value="bert-base-uncased">BERT</option>
-                <option value="ModernBERT-base">ModernBERT</option>
-                <option value="ensemble">Ensemble (all models)</option>
-            </select>
-            <button id="analyze-btn" onclick="analyze()">
-                Analyze <div class="spinner" id="spinner"></div>
-            </button>
-            <button class="btn-secondary" onclick="compareAll()">
-                Compare All <div class="spinner" id="spinner2"></div>
-            </button>
+        <div class="tabs">
+            <div class="tab active" onclick="switchTab('sentence')">Sentence</div>
+            <div class="tab" onclick="switchTab('paragraph')">Paragraph Highlighter</div>
         </div>
 
-        <div class="examples">
-            <div class="example-chip" onclick="setExample(this)">GDP grew 2.1% last quarter.</div>
-            <div class="example-chip" onclick="setExample(this)">I think pizza is great.</div>
-            <div class="example-chip" onclick="setExample(this)">What time is it?</div>
-            <div class="example-chip" onclick="setExample(this)">The earth orbits the sun.</div>
-            <div class="example-chip" onclick="setExample(this)">We should invest in education.</div>
-            <div class="example-chip" onclick="setExample(this)">Amazon reported $574B in revenue.</div>
+        <!-- ─── SENTENCE MODE ─── -->
+        <div id="sentence-mode">
+            <textarea id="input" rows="3" placeholder="Enter a sentence to analyze..."></textarea>
+            <div class="controls">
+                <select id="model-select">
+                    <option value="distilbert-base-uncased">DistilBERT</option>
+                    <option value="bert-base-uncased">BERT</option>
+                    <option value="ModernBERT-base">ModernBERT</option>
+                    <option value="ensemble">Ensemble (all models)</option>
+                </select>
+                <button onclick="analyze()">Analyze <div class="spinner" id="spinner"></div></button>
+                <button class="btn-secondary" onclick="compareAll()">Compare All <div class="spinner" id="spinner2"></div></button>
+            </div>
+            <div class="examples">
+                <div class="example-chip" onclick="setExample(this)">GDP grew 2.1% last quarter.</div>
+                <div class="example-chip" onclick="setExample(this)">I think pizza is great.</div>
+                <div class="example-chip" onclick="setExample(this)">What time is it?</div>
+                <div class="example-chip" onclick="setExample(this)">The earth orbits the sun.</div>
+                <div class="example-chip" onclick="setExample(this)">We should invest in education.</div>
+                <div class="example-chip" onclick="setExample(this)">Amazon reported $574B in revenue.</div>
+            </div>
+
+            <div class="result" id="result">
+                <div class="result-header">
+                    <div class="badge" id="badge"></div>
+                    <div class="confidence-text">Confidence: <span id="conf-value"></span></div>
+                </div>
+                <div class="conf-bar-bg"><div class="conf-bar-fill" id="conf-bar"></div></div>
+                <div id="attr-section">
+                    <div class="section-label">Key tokens</div>
+                    <div class="attribution" id="attribution"></div>
+                </div>
+                <div class="meta">Model: <span id="meta-model"></span></div>
+            </div>
+
+            <div class="compare-grid" id="compare-grid"></div>
         </div>
 
-        <!-- Single model result -->
-        <div class="result" id="result">
-            <div class="result-header">
-                <div class="badge" id="badge"></div>
-                <div class="confidence-text">Confidence: <span id="conf-value"></span></div>
+        <!-- ─── PARAGRAPH MODE ─── -->
+        <div id="paragraph-mode" class="hidden">
+            <textarea id="para-input" rows="8" placeholder="Paste a paragraph, article excerpt, or speech transcript..."></textarea>
+            <div class="controls">
+                <select id="para-model-select">
+                    <option value="ensemble">Ensemble (all models)</option>
+                    <option value="distilbert-base-uncased">DistilBERT</option>
+                    <option value="bert-base-uncased">BERT</option>
+                    <option value="ModernBERT-base">ModernBERT</option>
+                </select>
+                <button onclick="analyzeParagraph()">Highlight Claims <div class="spinner" id="spinner3"></div></button>
             </div>
-            <div class="conf-bar-bg">
-                <div class="conf-bar-fill" id="conf-bar"></div>
+            <div class="examples">
+                <div class="example-chip" onclick="setParaExample(0)">Political speech</div>
+                <div class="example-chip" onclick="setParaExample(1)">News article</div>
+                <div class="example-chip" onclick="setParaExample(2)">Opinion piece</div>
             </div>
-            <div id="attr-section">
-                <div class="section-label">Key tokens</div>
-                <div class="attribution" id="attribution"></div>
-            </div>
-            <div class="meta">Model: <span id="meta-model"></span></div>
-        </div>
 
-        <!-- Comparison view -->
-        <div class="compare-grid" id="compare-grid"></div>
+            <div class="highlight-output" id="highlight-output">
+                <div class="highlight-legend">
+                    <span><span class="legend-dot claim"></span> Claim (verifiable)</span>
+                    <span><span class="legend-dot not-claim"></span> Not a claim</span>
+                </div>
+                <div id="highlight-text"></div>
+                <div class="highlight-stats">
+                    <span><span class="stat-num" id="stat-total">0</span> sentences</span>
+                    <span><span class="stat-num" id="stat-claims">0</span> claims</span>
+                    <span><span class="stat-num" id="stat-non">0</span> non-claims</span>
+                </div>
+            </div>
+        </div>
     </div>
 
     <footer>
@@ -220,27 +291,35 @@
     </footer>
 
     <script>
-        const input = document.getElementById('input');
+        const PARA_EXAMPLES = [
+            "The United States economy added 256,000 jobs in December 2024. The unemployment rate fell to 4.1 percent. Some economists believe this signals a strong recovery. We need to continue investing in American workers. According to the Bureau of Labor Statistics, wage growth has outpaced inflation for six consecutive months. I think the economy is heading in the right direction.",
+            "Amazon reported revenue of $574 billion in fiscal year 2023. The company employs over 1.5 million people worldwide. CEO Andy Jassy announced plans to invest $150 billion in cloud infrastructure. Many analysts wonder if this level of spending is sustainable. AWS revenue grew by 13% year-over-year. The stock price has risen 80% since its 2022 low.",
+            "In my opinion, remote work is the future of employment. Companies that force employees back to the office will lose talent. A Stanford study found that remote workers are 13% more productive. I believe we should embrace flexibility. Why would anyone want to commute two hours a day? The average American spends $4,500 per year on commuting costs."
+        ];
 
-        function setExample(el) {
-            input.value = el.textContent;
-            analyze();
+        // Tab switching
+        function switchTab(mode) {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            event.target.classList.add('active');
+            document.getElementById('sentence-mode').classList.toggle('hidden', mode !== 'sentence');
+            document.getElementById('paragraph-mode').classList.toggle('hidden', mode !== 'paragraph');
         }
 
+        // ─── Sentence mode ───
+        const input = document.getElementById('input');
         input.addEventListener('keydown', (e) => {
             if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); analyze(); }
         });
+
+        function setExample(el) { input.value = el.textContent; analyze(); }
 
         async function analyze() {
             const text = input.value.trim();
             if (!text) return;
             const model = document.getElementById('model-select').value;
-
-            document.getElementById('analyze-btn').disabled = true;
             document.getElementById('spinner').classList.add('active');
             document.getElementById('result').classList.remove('visible');
             document.getElementById('compare-grid').classList.remove('visible');
-
             try {
                 const resp = await fetch('/predict', {
                     method: 'POST',
@@ -250,25 +329,19 @@
                 const data = await resp.json();
                 if (!resp.ok) { alert(data.detail || 'Error'); return; }
                 showResult(data);
-            } catch (e) {
-                alert('Failed to connect: ' + e.message);
-            } finally {
-                document.getElementById('analyze-btn').disabled = false;
-                document.getElementById('spinner').classList.remove('active');
-            }
+            } catch (e) { alert('Failed to connect: ' + e.message); }
+            finally { document.getElementById('spinner').classList.remove('active'); }
         }
 
         function showResult(data) {
             const badge = document.getElementById('badge');
             badge.textContent = data.is_claim ? 'Claim' : 'Not a Claim';
             badge.className = 'badge ' + (data.is_claim ? 'claim' : 'not-claim');
-
             const pct = (data.confidence * 100).toFixed(1);
             document.getElementById('conf-value').textContent = pct + '%';
             const bar = document.getElementById('conf-bar');
             bar.style.width = pct + '%';
             bar.className = 'conf-bar-fill ' + (data.is_claim ? 'claim' : 'not-claim');
-
             const attrDiv = document.getElementById('attribution');
             const attrSection = document.getElementById('attr-section');
             attrDiv.innerHTML = '';
@@ -280,10 +353,7 @@
                     chip.innerHTML = `<span class="token">${esc(a.token)}</span><span class="weight">${(a.weight * 100).toFixed(1)}%</span>`;
                     attrDiv.appendChild(chip);
                 });
-            } else {
-                attrSection.style.display = 'none';
-            }
-
+            } else { attrSection.style.display = 'none'; }
             document.getElementById('meta-model').textContent = data.model;
             document.getElementById('result').classList.add('visible');
         }
@@ -291,11 +361,9 @@
         async function compareAll() {
             const text = input.value.trim();
             if (!text) return;
-
             document.getElementById('spinner2').classList.add('active');
             document.getElementById('result').classList.remove('visible');
             document.getElementById('compare-grid').classList.remove('visible');
-
             try {
                 const resp = await fetch('/compare', {
                     method: 'POST',
@@ -305,40 +373,69 @@
                 const data = await resp.json();
                 if (!resp.ok) { alert(data.detail || 'Error'); return; }
                 showComparison(data);
-            } catch (e) {
-                alert('Failed to connect: ' + e.message);
-            } finally {
-                document.getElementById('spinner2').classList.remove('active');
-            }
+            } catch (e) { alert('Failed to connect: ' + e.message); }
+            finally { document.getElementById('spinner2').classList.remove('active'); }
         }
 
         function showComparison(data) {
             const grid = document.getElementById('compare-grid');
             grid.innerHTML = '';
-
-            const allPreds = [...data.predictions, data.ensemble];
-            allPreds.forEach(p => {
+            [...data.predictions, data.ensemble].forEach(p => {
                 const pct = (p.confidence * 100).toFixed(1);
-                const isClaim = p.is_claim;
-                const cls = isClaim ? 'claim' : 'not-claim';
-                const isEnsemble = p.model === 'ensemble';
-
+                const cls = p.is_claim ? 'claim' : 'not-claim';
                 const card = document.createElement('div');
-                card.className = 'compare-card' + (isEnsemble ? ' ensemble' : '');
+                card.className = 'compare-card' + (p.model === 'ensemble' ? ' ensemble' : '');
                 card.innerHTML = `
                     <div class="compare-model">${esc(p.model)}</div>
-                    <div class="compare-badge ${cls}">${isClaim ? 'CLAIM' : 'NOT CLAIM'}</div>
-                    <div class="compare-bar">
-                        <div class="compare-bar-bg">
-                            <div class="compare-bar-fill ${cls}" style="width:${pct}%"></div>
-                        </div>
-                    </div>
-                    <div class="compare-conf">${pct}%</div>
-                `;
+                    <div class="compare-badge ${cls}">${p.is_claim ? 'CLAIM' : 'NOT CLAIM'}</div>
+                    <div class="compare-bar"><div class="compare-bar-bg"><div class="compare-bar-fill ${cls}" style="width:${pct}%"></div></div></div>
+                    <div class="compare-conf">${pct}%</div>`;
                 grid.appendChild(card);
             });
-
             grid.classList.add('visible');
+        }
+
+        // ─── Paragraph mode ───
+        function setParaExample(idx) {
+            document.getElementById('para-input').value = PARA_EXAMPLES[idx];
+            analyzeParagraph();
+        }
+
+        async function analyzeParagraph() {
+            const text = document.getElementById('para-input').value.trim();
+            if (!text) return;
+            const model = document.getElementById('para-model-select').value;
+            document.getElementById('spinner3').classList.add('active');
+            document.getElementById('highlight-output').classList.remove('visible');
+            try {
+                const resp = await fetch('/analyze', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ text, model }),
+                });
+                const data = await resp.json();
+                if (!resp.ok) { alert(data.detail || 'Error'); return; }
+                showHighlights(data);
+            } catch (e) { alert('Failed to connect: ' + e.message); }
+            finally { document.getElementById('spinner3').classList.remove('active'); }
+        }
+
+        function showHighlights(data) {
+            const container = document.getElementById('highlight-text');
+            container.innerHTML = '';
+            data.sentences.forEach(s => {
+                const span = document.createElement('span');
+                span.className = 'highlight-sentence ' + (s.is_claim ? 'claim' : 'not-claim');
+                const pct = (s.confidence * 100).toFixed(0);
+                const label = s.is_claim ? 'Claim' : 'Not a claim';
+                span.innerHTML = `${esc(s.text)} <span class="highlight-tooltip">${label} (${pct}%)</span>`;
+                container.appendChild(span);
+                container.appendChild(document.createTextNode(' '));
+            });
+            document.getElementById('stat-total').textContent = data.total;
+            document.getElementById('stat-claims').textContent = data.claims;
+            document.getElementById('stat-non').textContent = data.non_claims;
+            document.getElementById('highlight-output').classList.add('visible');
         }
 
         function esc(str) {
