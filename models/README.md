@@ -20,14 +20,13 @@ models/
 │   ├── tokenizer.json
 │   ├── config.json
 │   └── metrics.json
-├── deberta-v3-base/
+├── ModernBERT-base/
 │   ├── model.safetensors
 │   ├── tokenizer.json
 │   ├── config.json
 │   └── metrics.json
-└── onnx/
-    ├── model.onnx
-    └── tokenizer.json
+├── calibration.json         (temperature scaling parameter)
+└── ood_metrics.json         (out-of-domain evaluation results)
 ```
 
-Recreate with `make train && make export-onnx`.
+Recreate with `make train`.

@@ -102,7 +102,7 @@ The claim detector is a multi-model classification system that identifies whethe
 | Auth | None | OAuth2 / JWT with key rotation |
 | Rate limiting | slowapi (in-process) | Gateway-level (Kong, Nginx) |
 | Scaling | Single process | K8s HPA, 2-10 replicas |
-| Cache | In-memory LRU (cachetools) | Redis Cluster |
+| Cache | In-memory dict per (text, model) | Redis Cluster |
 | Feedback store | SQLite | PostgreSQL |
 | Model storage | Local filesystem | S3/GCS with versioning |
 | Logging | structlog to stdout | ELK / Loki + Grafana dashboards |

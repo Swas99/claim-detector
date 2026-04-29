@@ -178,7 +178,7 @@ claim-detector/
 ├── tests/                 # 25 tests: unit, integration, security, load
 ├── notebooks/             # Training report with OOD evaluation
 ├── docs/                  # Architecture diagram, model card
-├── Dockerfile             # Multi-stage (builder + slim runtime)
+├── Dockerfile             # Single-stage Python 3.13-slim
 ├── docker-compose.yml
 ├── Makefile               # train / serve / test / docker targets
 └── pyproject.toml
