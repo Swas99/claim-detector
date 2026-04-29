@@ -1,16 +1,18 @@
 # Multi-stage Dockerfile for claim-detector API
-# Stage 1: Build dependencies
-# Stage 2: Slim runtime with model + API
+#
+# Prerequisites: train at least DistilBERT before building:
+#   make train-distilbert
+#
+# Build: docker build -t claim-detector .
+# Run:   docker run -p 8000:8000 claim-detector
 
 # ─── Stage 1: Builder ─────────────────────────────────────────────────────────
 FROM python:3.13-slim AS builder
 
-WORKDIR /app
+WORKDIR /build
 
-# Install build deps
 RUN pip install --no-cache-dir --upgrade pip setuptools wheel
 
-# Copy and install Python dependencies
 COPY pyproject.toml .
 RUN pip install --no-cache-dir --prefix=/install .
 
@@ -19,24 +21,24 @@ FROM python:3.13-slim AS runtime
 
 WORKDIR /app
 
-# Copy installed packages from builder
+# Copy installed packages
 COPY --from=builder /install /usr/local
 
 # Copy application code
 COPY src/ src/
+
+# Copy model weights (must exist locally — run make train-distilbert first)
 COPY models/distilbert-base-uncased/ models/distilbert-base-uncased/
 COPY models/calibration.json models/calibration.json
 
-# Create data directory (dataset downloaded at train time, not needed for serving)
-RUN mkdir -p data models/onnx
+# Create directories for optional models
+RUN mkdir -p data
 
 # Environment
 ENV PYTHONUNBUFFERED=1
-ENV CLAIM_USE_ONNX=false
 ENV CLAIM_ACTIVE_MODEL=distilbert-base-uncased
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
     CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')" || exit 1
 
 EXPOSE 8000

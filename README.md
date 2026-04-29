@@ -11,41 +11,29 @@ Sentence-level claim detection API. Given a natural language sentence, determine
 - `curl` — for dataset download
 - Docker (optional) — for containerized deployment
 
-## Quick Start (just run the API)
-
-Pre-trained model weights and calibration are included. To start the API immediately:
+## Setup
 
 ```bash
-make setup
-source .venv/bin/activate
-make serve
-# Demo UI at http://localhost:8000
-# API docs at http://localhost:8000/docs
-```
-
-## Full Setup (train from scratch)
-
-To reproduce the full training pipeline (~1.5 hours total):
-
-```bash
+# Create venv and install dependencies
 make setup
 source .venv/bin/activate
 
 # Download dataset (~13k sentences from VeritaResearch/claim-extraction)
 make download-data
 
-# Train all 4 models
+# Train models (total ~1.5 hours on Apple Silicon MPS, longer on CPU)
 make train-tfidf          # ~1 second
 make train-distilbert     # ~12 min (MPS)
 make train-bert           # ~23 min (MPS)
 make train-modernbert     # ~34 min (MPS)
 
-# Fit confidence calibration on test set
-make fit-calibration
-
 # Start API
 make serve
+# Demo UI at http://localhost:8000
+# API docs at http://localhost:8000/docs
 ```
+
+Model weights are not included in the repo (too large). You must train before running the API. To train only the default model (fastest): `make train-distilbert`.
 
 ## Demo UI
 
