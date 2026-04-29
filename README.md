@@ -19,6 +19,7 @@ Pre-trained model weights and calibration are included. To start the API immedia
 make setup
 source .venv/bin/activate
 make serve
+# Demo UI at http://localhost:8000
 # API docs at http://localhost:8000/docs
 ```
 
@@ -46,25 +47,42 @@ make fit-calibration
 make serve
 ```
 
+## Demo UI
+
+The app serves a demo interface at `http://localhost:8000/` with two modes:
+
+**Sentence mode** — type a sentence, pick a model (DistilBERT, BERT, ModernBERT, or Ensemble), see the prediction with confidence and token attribution. "Compare All" runs every model side-by-side.
+
+**Paragraph Highlighter** — paste an article or speech transcript. The system splits it into sentences and highlights claims (green underline) vs non-claims (gray). Hover any sentence for the confidence score.
+
 ## API Usage
 
 ```bash
-# Single prediction
+# Single prediction (select model via "model" field)
 curl -X POST http://localhost:8000/predict \
   -H "Content-Type: application/json" \
-  -d '{"text": "The Empire State Building is the tallest building in New York City."}'
+  -d '{"text": "The Empire State Building is the tallest building in NYC.", "model": "ensemble"}'
 
 # Response:
 # {
 #   "is_claim": true,
 #   "confidence": 0.972,
-#   "source": "model",
-#   "cached": false,
+#   "model": "ensemble",
 #   "attribution": [
 #     {"token": "tallest", "weight": 0.2341},
 #     {"token": "building", "weight": 0.1892}
 #   ]
 # }
+
+# Compare all models on one sentence
+curl -X POST http://localhost:8000/compare \
+  -H "Content-Type: application/json" \
+  -d '{"text": "The earth orbits the sun."}'
+
+# Analyze a paragraph (split + classify each sentence)
+curl -X POST http://localhost:8000/analyze \
+  -H "Content-Type: application/json" \
+  -d '{"text": "GDP grew 2.1%. I think that is great. What happens next?"}'
 
 # Batch prediction (up to 100 sentences)
 curl -X POST http://localhost:8000/predict/batch \
@@ -85,27 +103,21 @@ curl -X POST http://localhost:8000/feedback \
 
 ## Inference Pipeline
 
-Requests pass through a cascading pipeline that skips unnecessary computation:
-
 ```
-Input → Cache Lookup → Fast Filter → Model (DistilBERT) → Calibration → Attribution → Response
-         (exact match)  (rule-based     (transformer        (temperature    (attention
-          LRU, 1hr TTL)  pre-filter)     inference)          scaling)        weights)
+Input → Cache → Model (DistilBERT/BERT/ModernBERT/Ensemble) → Calibration → Attribution → Response
+        (exact   (transformer inference,                        (temperature    (attention
+         match)   lazy-loaded per model)                         scaling)        weights)
 ```
 
-### Fast Filter Rules
+Predictions are cached by exact `(text, model)` pair. Same text + same model returns instantly; different text or different model runs fresh inference.
 
-The fast filter catches ~30-40% of inputs without any model inference:
+### Multi-Model Support
 
-| Pattern | Decision | Example |
-|---|---|---|
-| Ends with `?` | Not a claim | "What time is it?" |
-| Starts with "I think/believe/feel" | Not a claim | "I think pizza is great." |
-| Starts with "Hello/Hi/Thanks" | Not a claim | "Hello, how are you?" |
-| Starts with "Stop/Don't/Let's" | Not a claim | "Stop doing that." |
-| Contains "increased/decreased by" | Likely claim | "Sales increased by 15%." |
-| Fewer than 5 characters | Not a claim | "Hi" |
-| Everything else | Sent to model | "The earth orbits the sun." |
+All three transformer models are available via the API and UI:
+- **DistilBERT** (default) — fastest, deployed model
+- **BERT-base** — paper reproduction
+- **ModernBERT** — best accuracy
+- **Ensemble** — averages calibrated probabilities from all three
 
 ### Confidence Calibration
 
@@ -113,7 +125,7 @@ Raw model probabilities are poorly calibrated (a "90% confidence" prediction may
 
 ### Token Attribution
 
-For model-sourced predictions, the API returns the top-5 tokens that influenced the decision, derived from the transformer's attention weights. This makes predictions auditable.
+For single-model predictions, the API returns the top-5 tokens that influenced the decision, derived from the transformer's attention weights. This makes predictions auditable.
 
 ### Feedback Loop
 
@@ -134,7 +146,7 @@ make docker-up
 ## Testing
 
 ```bash
-make test           # 38 unit + integration + security tests
+make test           # 25 unit + integration + security tests
 make load-test      # Locust: 50 concurrent users, 60s (requires API running)
 ```
 
@@ -151,13 +163,13 @@ Four models trained and compared on the same dataset (composite claim detection,
 | Model | Params | F1 Score | Accuracy | Training Time | Role |
 |---|---|---|---|---|---|
 | TF-IDF + XGBoost | ~2MB | 0.797 | 82.0% | <1s | Classical baseline |
-| **DistilBERT** | **66M** | **0.905** | **91.1%** | **12 min** | **Deployed model** |
+| **DistilBERT** | **66M** | **0.905** | **91.1%** | **12 min** | **Default deployed model** |
 | BERT-base | 110M | 0.905 | 91.2% | 23 min | Paper reproduction |
 | ModernBERT | 150M | 0.917 | 92.2% | 34 min | Best overall |
 
-**Why DistilBERT for deployment?** It matches BERT's accuracy at half the size (256MB vs 420MB) and half the training time. ModernBERT scores 1.2% higher F1 but is 2.2x larger (574MB) — not worth the infrastructure cost at scale.
+**Out-of-domain performance:** All models drop to ~0.78 F1 on tweets (CheckThat dataset), matching the reference paper's findings. See [notebooks/training_report.ipynb](notebooks/training_report.ipynb) for full analysis including confusion matrices, loss curves, and OOD evaluation.
 
-**DeBERTa-v3 note:** Attempted but produces NaN loss on Apple Silicon MPS due to numerical instability in its disentangled attention mechanism. ModernBERT was used as the SOTA comparison instead.
+**Why DistilBERT as default?** It matches BERT's accuracy at half the size (256MB vs 420MB). ModernBERT scores 1.2% higher F1 but is 2.2x larger. All models are accessible via the API and UI.
 
 ## Project Structure
 
@@ -167,15 +179,16 @@ claim-detector/
 │   ├── data/              # Dataset loading and preprocessing
 │   ├── training/          # Fine-tuning, ONNX export, calibration fitting
 │   ├── engine/            # Inference pipeline
-│   │   ├── detector.py    #   Orchestrator (cache -> filter -> model -> calibrate)
-│   │   ├── fast_filter.py #   Rule-based pre-filter
+│   │   ├── detector.py    #   Multi-model orchestrator with cache
 │   │   ├── model_runner.py#   PyTorch / ONNX inference
-│   │   ├── cache.py       #   LRU + TTL prediction cache
 │   │   ├── calibration.py #   Temperature scaling
 │   │   └── attribution.py #   Token importance via attention
 │   ├── api/               # FastAPI server, routes, schemas
+│   │   └── main.py        #   App with demo UI at /
+│   ├── static/            # Demo UI (single HTML page)
 │   └── feedback/          # SQLite correction logging
-├── tests/                 # 38 tests: unit, integration, security, load
+├── tests/                 # 25 tests: unit, integration, security, load
+├── notebooks/             # Training report with OOD evaluation
 ├── docs/                  # Architecture diagram, model card
 ├── Dockerfile             # Multi-stage (builder + slim runtime)
 ├── docker-compose.yml

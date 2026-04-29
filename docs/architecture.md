@@ -2,16 +2,17 @@
 
 ## Overview
 
-The claim detector is a sentence-level classification system that identifies whether a natural language sentence contains a verifiable factual claim. It uses a fine-tuned DistilBERT model behind a cascading inference pipeline with caching, rule-based pre-filtering, and confidence calibration.
+The claim detector is a multi-model classification system that identifies whether a natural language sentence contains a verifiable factual claim. It supports three transformer models (DistilBERT, BERT, ModernBERT) plus an ensemble mode, with confidence calibration and token-level attribution.
 
 ## Local Architecture
 
 ```
-    Client (curl / browser / test suite)
+    Client (curl / browser / demo UI)
         │
         ▼
 ┌───────────────────────────────────────────────────┐
 │                  FastAPI Server                     │
+│  - Demo UI at /  (sentence + paragraph modes)      │
 │  - CORS middleware                                  │
 │  - Rate limiting (slowapi, 60 req/min per IP)      │
 │  - Structured JSON logging (structlog)             │
@@ -20,6 +21,8 @@ The claim detector is a sentence-level classification system that identifies whe
 │  Endpoints:                                         │
 │    POST /predict        single sentence             │
 │    POST /predict/batch  up to 100 sentences         │
+│    POST /compare        all models side-by-side     │
+│    POST /analyze        paragraph claim highlighter │
 │    GET  /health         liveness check              │
 │    GET  /model/info     metadata + eval metrics     │
 │    POST /feedback       correction logging          │
@@ -29,29 +32,30 @@ The claim detector is a sentence-level classification system that identifies whe
 ┌───────────────────────────────────────────────────┐
 │              Inference Pipeline                     │
 │                                                     │
-│  1. CACHE LOOKUP ──► hit? return immediately        │
-│     │ miss                                          │
+│  1. CACHE CHECK ──► exact (text, model) hit?        │
+│     │ miss             return cached prediction     │
 │     ▼                                               │
-│  2. FAST FILTER ──► question? opinion? → skip model │
-│     │ uncertain                                     │
+│  2. MODEL INFERENCE                                │
+│     ├── DistilBERT (default, 66M params)           │
+│     ├── BERT-base (110M params)                    │
+│     ├── ModernBERT (150M params)                   │
+│     └── Ensemble (average of all three)            │
+│     │   Models loaded lazily on first use           │
 │     ▼                                               │
-│  3. MODEL INFERENCE (DistilBERT / ONNX)            │
+│  3. CONFIDENCE CALIBRATION (T=2.15)                │
 │     │                                               │
 │     ▼                                               │
-│  4. CONFIDENCE CALIBRATION (T=2.15)                │
+│  4. TOKEN ATTRIBUTION (attention weights)          │
 │     │                                               │
 │     ▼                                               │
-│  5. TOKEN ATTRIBUTION (attention weights)          │
-│     │                                               │
-│     ▼                                               │
-│  6. CACHE STORE + RETURN                           │
+│  5. CACHE STORE + RETURN                           │
 └───────────────────────────────────────────────────┘
                      │
                      ▼
 ┌───────────────────────────────────────────────────┐
 │              Persistence                            │
 │  - Feedback store: SQLite (corrections)            │
-│  - Cache: in-memory LRU (10k entries, 1hr TTL)    │
+│  - Prediction cache: in-memory dict per (text,model)│
 │  - Model weights: local filesystem                 │
 └───────────────────────────────────────────────────┘
 ```
@@ -108,14 +112,17 @@ The claim detector is a sentence-level classification system that identifies whe
 
 ## Key Design Decisions
 
-**Why DistilBERT for deployment (not ModernBERT)?**
-ModernBERT scores higher (0.917 vs 0.905 F1) but is 2.2x larger (574MB vs 256MB). DistilBERT loads faster, uses less memory, and the 1.2% F1 difference doesn't justify doubling infrastructure cost at scale.
+**Why DistilBERT as default (not ModernBERT)?**
+ModernBERT scores higher (0.917 vs 0.905 F1) but is 2.2x larger (574MB vs 256MB). DistilBERT loads faster, uses less memory, and the 1.2% F1 difference doesn't justify doubling infrastructure cost at scale. All models remain accessible via the API for comparison.
+
+**Why multi-model + ensemble?**
+Different models disagree on borderline cases ("The earth orbits the sun" — DistilBERT 91.7% CLAIM, BERT 28.5% NOT CLAIM). The ensemble averages calibrated probabilities, smoothing out individual model biases. The compare endpoint makes disagreements transparent.
 
 **Why PyTorch over ONNX locally?**
 Benchmarking showed ONNX Runtime is 0.56x the speed of PyTorch on Apple Silicon MPS. On x86 production servers, ONNX would be preferred (typically 2-3x faster than PyTorch on CPU).
 
-**Why a cascading pipeline?**
-The fast filter catches ~30-40% of inputs (questions, opinions, greetings) without any model inference. At scale, this cuts compute cost significantly. The cache further reduces redundant inference.
+**Why exact-match cache (not normalized)?**
+An earlier implementation normalized cache keys to lowercase, causing "GDP grew 2.1%" and "I think GDP grew 2.1%" to share results. The current cache keys on `(exact_text, model_name)` — only identical inputs to the same model return cached results.
 
 **Why temperature scaling for calibration?**
 Raw softmax outputs from fine-tuned models are poorly calibrated. Temperature scaling (T=2.15) reduced NLL by 40.9%, making confidence scores meaningful for downstream decision-making.
