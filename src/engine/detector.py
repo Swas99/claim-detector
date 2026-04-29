@@ -52,6 +52,7 @@ class ClaimDetector:
         self.model_dir = model_dir or settings.model_dir
         self._models: dict[str, dict] = {}
         self._attributors: dict[str, AttentionAttributor] = {}
+        self._cache: dict[tuple[str, str], Prediction] = {}  # (exact_text, model) -> Prediction
 
         # Load calibration
         cal_path = self.model_dir / "calibration.json"
@@ -111,6 +112,11 @@ class ClaimDetector:
     def predict(self, text: str, model_name: str | None = None) -> Prediction:
         """Predict with a single model."""
         model_name = model_name or settings.active_model
+        cache_key = (text, model_name)
+
+        if cache_key in self._cache:
+            return self._cache[cache_key]
+
         logits = self._infer(text, model_name)
         probs = self.calibrator.calibrate(logits.reshape(1, -1))[0]
         claim_prob = float(probs[1])
@@ -118,15 +124,22 @@ class ClaimDetector:
         attr = self._attributors.get(model_name)
         attribution = attr.attribute(text) if attr else None
 
-        return Prediction(
+        pred = Prediction(
             is_claim=claim_prob >= settings.confidence_threshold,
             confidence=claim_prob,
             model=model_name,
             attribution=attribution,
         )
+        self._cache[cache_key] = pred
+        return pred
 
     def predict_ensemble(self, text: str) -> Prediction:
         """Ensemble: average calibrated probabilities from all transformer models."""
+        cache_key = (text, "ensemble")
+
+        if cache_key in self._cache:
+            return self._cache[cache_key]
+
         probs_list = []
         for model_name in TRANSFORMER_MODELS:
             try:
@@ -140,11 +153,13 @@ class ClaimDetector:
             return self.predict(text)
 
         avg_prob = float(np.mean(probs_list))
-        return Prediction(
+        pred = Prediction(
             is_claim=avg_prob >= settings.confidence_threshold,
             confidence=avg_prob,
             model="ensemble",
         )
+        self._cache[cache_key] = pred
+        return pred
 
     def compare(self, text: str) -> ComparisonResult:
         """Run all models and return side-by-side comparison."""
